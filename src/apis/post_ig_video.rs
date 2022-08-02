@@ -59,7 +59,8 @@ async fn post(
 ) -> Result<String, FbapiError> {
     let params = vec![
         ("access_token", access_token),
-        ("media_type", "VIDEO"),
+        ("media_type", "REELS"),
+        ("share_to_feed", "true"),
         ("video_url", video_url),
         ("caption", caption),
     ];
