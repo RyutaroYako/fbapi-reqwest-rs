@@ -1,26 +1,25 @@
 use crate::*;
 
 impl Fbapi {
-    pub async fn post_ig_picture(
+    pub async fn post_ig_carousel(
         &self,
         access_token: &str,
         account_igid: &str,
-        image_url: &str,
         caption: &str,
+        container_ids: &Vec<&str>,
         retry_count: usize,
         log: impl Fn(LogParams),
     ) -> Result<serde_json::Value, FbapiError> {
-        let creation_id = self
-            .post_ig_picture_container(
-                &access_token,
-                &account_igid,
-                &image_url,
-                &caption,
-                false,
-                retry_count,
-                &log,
-            )
-            .await?;
+        let creation_id = post(
+            &self.make_path(&format!("{}/media", account_igid)),
+            &access_token,
+            &container_ids.join(","),
+            &caption,
+            retry_count,
+            &self.client,
+            &log,
+        )
+        .await?;
 
         publish(
             &self.make_path(&format!("{}/media_publish", account_igid)),
@@ -32,49 +31,22 @@ impl Fbapi {
         )
         .await
     }
-
-    pub async fn post_ig_picture_container(
-        &self,
-        access_token: &str,
-        account_igid: &str,
-        image_url: &str,
-        caption: &str,
-        is_carousel_item: bool,
-        retry_count: usize,
-        log: impl Fn(LogParams),
-    ) -> Result<String, FbapiError> {
-        let creation_id = post(
-            &self.make_path(&format!("{}/media", account_igid)),
-            &access_token,
-            &image_url,
-            &caption,
-            is_carousel_item,
-            retry_count,
-            &self.client,
-            &log,
-        )
-        .await?;
-
-        Ok(creation_id)
-    }
 }
 
 async fn post(
     path: &str,
     access_token: &str,
-    image_url: &str,
+    children: &str,
     caption: &str,
-    is_carousel_item: bool,
     retry_count: usize,
     client: &reqwest::Client,
     log: impl Fn(LogParams),
 ) -> Result<String, FbapiError> {
-    let is_carousel_item = is_carousel_item.to_string();
     let params = vec![
         ("access_token", access_token),
-        ("image_url", image_url),
+        ("media_type", "CAROUSEL"),
+        ("children", children),
         ("caption", caption),
-        ("is_carousel_item", &is_carousel_item),
     ];
     let log_params = LogParams::new(&path, &params);
     let res = execute_retry(

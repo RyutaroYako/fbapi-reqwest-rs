@@ -12,11 +12,49 @@ impl Fbapi {
         retry_count: usize,
         log: impl Fn(LogParams),
     ) -> Result<serde_json::Value, FbapiError> {
+        let creation_id = self
+            .post_ig_video_container(
+                access_token,
+                account_igid,
+                video_url,
+                caption,
+                false,
+                check_retry_count,
+                check_video_delay,
+                retry_count,
+                &log,
+            )
+            .await?;
+
+        publish(
+            &self.make_path(&format!("{}/media_publish", account_igid)),
+            &access_token,
+            &creation_id,
+            retry_count,
+            &self.client,
+            &log,
+        )
+        .await
+    }
+
+    pub async fn post_ig_video_container(
+        &self,
+        access_token: &str,
+        account_igid: &str,
+        video_url: &str,
+        caption: &str,
+        is_carousel_item: bool,
+        check_retry_count: usize,
+        check_video_delay: usize,
+        retry_count: usize,
+        log: impl Fn(LogParams),
+    ) -> Result<String, FbapiError> {
         let creation_id = post(
             &self.make_path(&format!("{}/media", account_igid)),
             &access_token,
             &video_url,
             &caption,
+            is_carousel_item,
             retry_count,
             &self.client,
             &log,
@@ -36,15 +74,7 @@ impl Fbapi {
         )
         .await?;
 
-        publish(
-            &self.make_path(&format!("{}/media_publish", account_igid)),
-            &access_token,
-            &creation_id,
-            retry_count,
-            &self.client,
-            &log,
-        )
-        .await
+        Ok(creation_id)
     }
 }
 
@@ -53,15 +83,18 @@ async fn post(
     access_token: &str,
     video_url: &str,
     caption: &str,
+    is_carousel_item: bool,
     retry_count: usize,
     client: &reqwest::Client,
     log: impl Fn(LogParams),
 ) -> Result<String, FbapiError> {
+    let is_carousel_item = is_carousel_item.to_string();
     let params = vec![
         ("access_token", access_token),
         ("media_type", "VIDEO"),
         ("video_url", video_url),
         ("caption", caption),
+        ("is_carousel_item", &is_carousel_item),
     ];
     let log_params = LogParams::new(&path, &params);
     let res = execute_retry(
